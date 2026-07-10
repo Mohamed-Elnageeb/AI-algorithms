@@ -1,0 +1,29 @@
+name: cuda-hpc build
+
+on:
+  push:
+    paths:
+      - "cuda-hpc/**"
+      - ".github/workflows/cuda-build.yml"
+  pull_request:
+    paths:
+      - "cuda-hpc/**"
+      - ".github/workflows/cuda-build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CUDA toolkit
+        uses: Jimver/cuda-toolkit@v0.2.19
+        with:
+          cuda: "12.4.1"
+          method: network
+
+      - name: Configure
+        run: cmake -B build -S cuda-hpc
+
+      - name: Build
+        run: cmake --build build --parallel
