@@ -29,7 +29,9 @@ idle at small n), while the single-core CPU rises linearly. They cross at about
 **n = 102** — below that the GPU's transfer + launch overhead isn't worth it.
 
 📄 **See [REPORT.md](REPORT.md)** for the full write-up: time-complexity analysis,
-why the curves behave as they do, and a recap of the CUDA concepts.
+kernel-vs-transfer timing, the Euler-vs-RK4 comparison, and why the curves
+behave as they do. **See [LESSONS.md](LESSONS.md)** for a concept-by-concept FAQ
+(why 256 threads, pointer vs reference, the toolchain gotchas, git, …).
 
 ## Files
 
