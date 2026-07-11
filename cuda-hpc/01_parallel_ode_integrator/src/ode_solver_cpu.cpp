@@ -17,7 +17,7 @@ void integrate_cpu(OscillatorState* states, const OscillatorParams* params,
         
         for (int j = 0; j < num_steps; j++)
         {
-            float a = -two_zeta_omega * s.v - omega_sq * states[i].x;
+            float a = -two_zeta_omega * s.v - omega_sq * s.x;
             s.v += a * dt;
             s.x += s.v * dt;
         }
