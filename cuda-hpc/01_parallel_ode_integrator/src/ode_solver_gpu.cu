@@ -21,6 +21,7 @@ __global__ void integrate_kernel(OscillatorState* states, const OscillatorParams
 
 void integrate_gpu(OscillatorState* states, const OscillatorParams* params,
                     int n, float dt, int num_steps) {
+
     // --- 1. Rent GPU desk space. 'd_' = "device" (lives on GPU) ---
     size_t states_bytes = n * sizeof(OscillatorState);
     size_t params_bytes = n * sizeof(OscillatorParams);
@@ -40,7 +41,6 @@ void integrate_gpu(OscillatorState* states, const OscillatorParams* params,
 
     // --- 4. Mail results GPU -> CPU (direction flips!) ---
     cudaMemcpy(states, d_states, states_bytes, cudaMemcpyDeviceToHost);
-    cudaMemcpy(params, d_params, params_bytes, cudaMemcpyDeviceToHost); 
 
     // --- 5. Return the desks ---
     cudaFree(d_states);
