@@ -50,10 +50,10 @@ order, or all at once.
 
 | n | CPU 1-core (ms) | GPU (ms) | Speedup |
 |--:|--:|--:|--:|
-| 1,000 | 6.53 | 0.66 | 9.9× |
-| 10,000 | 67.1 | 1.00 | 67× |
-| 100,000 | 656.7 | 1.32 | 499× |
-| 1,000,000 | 6538 | 7.25 | **902×** |
+| 1,000 | 6.53 | 0.61 | 10.7× |
+| 10,000 | 66.3 | 1.03 | 65× |
+| 100,000 | 657.2 | 1.40 | 468× |
+| 1,000,000 | 6643 | 7.05 | **942×** |
 
 All GPU results are verified bit-for-bit against the single-core CPU reference
 (`match = OK` on every row). The sweep runs from n = 1 to n = 10⁶.
@@ -108,7 +108,7 @@ The GPU wins once its overhead is cheaper than the CPU's linear work:
 L  ≈  T_cpu(n*)  =  c · n* · S      ⇒      n*  ≈  L / (c · S)
 ```
 
-Measured crossover: **n\* ≈ 107**. Below it, the single core is faster because
+Measured crossover: **n\* ≈ 102**. Below it, the single core is faster because
 the GPU's fixed overhead `L` dominates a tiny workload; above it, the GPU's
 parallelism takes over.
 
@@ -120,7 +120,7 @@ speedup = T_cpu / T_gpu  →  (n·S) / (n·S/P + Θ(n))  ≈  P / (1 + P/S)
 ```
 
 With `S = 1000` and `P = 3072`, memory transfer (the `Θ(n)` term) starts to
-bite, which is why the observed 902× is below the raw core count of 3072 — the
+bite, which is why the observed 942× is below the raw core count of 3072 — the
 classic lesson that on the GPU, **moving data, not doing math, is often the
 bottleneck** (this problem does only ~1000 flops per oscillator but must ship
 every oscillator across the bus). More arithmetic per byte (e.g. RK4, or more

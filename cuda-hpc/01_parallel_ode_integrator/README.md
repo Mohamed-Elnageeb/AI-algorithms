@@ -19,14 +19,14 @@ bit-for-bit against the CPU reference.
 
 | n | CPU 1-core (ms) | GPU (ms) | Speedup |
 |--:|--:|--:|--:|
-| 1,000 | 6.53 | 0.66 | 9.9× |
-| 10,000 | 67.1 | 1.00 | 67× |
-| 100,000 | 656.7 | 1.32 | 499× |
-| 1,000,000 | 6538 | 7.25 | **902×** |
+| 1,000 | 6.53 | 0.61 | 10.7× |
+| 10,000 | 66.3 | 1.03 | 65× |
+| 100,000 | 657.2 | 1.40 | 468× |
+| 1,000,000 | 6643 | 7.05 | **942×** |
 
 The GPU line is nearly flat until the hardware saturates (thousands of cores sit
 idle at small n), while the single-core CPU rises linearly. They cross at about
-**n = 107** — below that the GPU's transfer + launch overhead isn't worth it.
+**n = 102** — below that the GPU's transfer + launch overhead isn't worth it.
 
 📄 **See [REPORT.md](REPORT.md)** for the full write-up: time-complexity analysis,
 why the curves behave as they do, and a recap of the CUDA concepts.
