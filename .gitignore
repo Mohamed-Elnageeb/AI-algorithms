@@ -1,3 +1,8 @@
 .vscode/
 build/
 *.o
+*.exe
+*.exp
+*.lib
+*.pdb
+benchmark
