@@ -69,14 +69,25 @@ def main():
     ax.set_title("Batched ODE integration: CPU vs GPU")
     ax.grid(True, which="both", alpha=0.3)
 
-    # Mark where the GPU overtakes the strongest CPU baseline (all cores).
-    xover = crossover_n(ns, cpu_par, gpu)
+    # Mark where the GPU overtakes the single-core CPU. (We use the 1-core
+    # baseline for the marker because the parallel-CPU line is dominated by
+    # thread-launch overhead at tiny n, so its crossover is not meaningful.)
+    xover = crossover_n(ns, cpu1, gpu)
     if xover:
         ax.axvline(xover, ls="--", color="gray", alpha=0.7)
-        ax.annotate(f"GPU beats {threads}-thread CPU\n≈ n = {xover:,.0f}",
-                    xy=(xover, min(gpu)), xytext=(xover * 1.4, min(gpu) * 5),
+        ax.annotate(f"GPU overtakes CPU (1 core)\n≈ n = {xover:,.0f}",
+                    xy=(xover, min(gpu)), xytext=(xover * 1.5, min(gpu) * 6),
                     fontsize=9, color="gray",
                     arrowprops=dict(arrowstyle="->", color="gray"))
+
+    # Headline speedups at the largest n, where the hardware is saturated.
+    big = max(range(len(ns)), key=lambda i: ns[i])
+    peak = (f"at n = {ns[big]:,}:\n"
+            f"  GPU is {cpu1[big] / gpu[big]:.0f}x faster than 1 core\n"
+            f"  GPU is {cpu_par[big] / gpu[big]:.0f}x faster than {threads} threads")
+    ax.text(0.98, 0.30, peak, transform=ax.transAxes, ha="right", va="top",
+            fontsize=9, family="monospace",
+            bbox=dict(boxstyle="round", fc="#f5f5f5", ec="gray", alpha=0.95))
 
     specs = (
         f"GPU: {meta.get('gpu_name', '?')}\n"
