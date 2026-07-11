@@ -1,9 +1,10 @@
 #include <cstdio>
+#include <cstdlib>   // system()
 #include <vector>
 #include <chrono>
 #include <cmath>
 #include <algorithm>
-#include <thread>
+#include <thread>    // hardware_concurrency (for the info line only)
 
 #include "ode_solver.h"
 
@@ -41,10 +42,10 @@ static double median_ms(Reset reset, Run run, int K) {
 int main() {
     const float dt = 0.001f;
     const int num_steps = 1000;
-    // Log-spaced (~3x) sweep, starting tiny so we can see where the GPU
-    // overtakes the CPU.
-    const int sizes[] = {1, 3, 10, 30, 100, 300, 1000, 3000,
-                         10000, 30000, 100000, 300000, 1000000};
+    // Log-spaced (~3x) sweep, tiny -> huge, so we see both the CPU->GPU
+    // crossover and the GPU's flat region all the way out to 10 million.
+    const int sizes[] = {1, 3, 10, 30, 100, 300, 1000, 3000, 10000, 30000,
+                         100000, 300000, 1000000, 3000000, 10000000};
 
     // --- hardware info ---
     DeviceInfo dev;
@@ -73,11 +74,10 @@ int main() {
     fprintf(csv, "# gpu_sms,%d\n", dev.sms);
     fprintf(csv, "# cpu_threads,%u\n", cpu_threads);
     fprintf(csv, "# num_steps,%d\n", num_steps);
-    fprintf(csv, "n,cpu1_ms,cpu_par_ms,gpu_ms,gpu_vs_cpu1,gpu_vs_cpu_par,match\n");
+    fprintf(csv, "n,cpu_ms,gpu_ms,speedup,match\n");
 
-    printf("%10s %11s %11s %11s %10s %10s %7s\n",
-           "n", "cpu1_ms", "cpu_par_ms", "gpu_ms", "vs_1core", "vs_all", "match");
-    printf("---------------------------------------------------------------------------\n");
+    printf("%12s %12s %12s %12s %10s\n", "n", "cpu_ms", "gpu_ms", "speedup", "match");
+    printf("------------------------------------------------------------\n");
 
     for (int n : sizes) {
         std::vector<OscillatorState> s0;
@@ -88,41 +88,38 @@ int main() {
         int K = (n <= 1000) ? 9 : (n <= 100000 ? 3 : 1);
 
         std::vector<OscillatorState> work;
-        double cpu1_ms = median_ms(
+        double cpu_ms = median_ms(
             [&]() { work = s0; },
             [&]() { integrate_cpu(work.data(), p.data(), n, dt, num_steps); }, K);
         std::vector<OscillatorState> cpu_result = work;  // reference answer
-
-        double cpu_par_ms = median_ms(
-            [&]() { work = s0; },
-            [&]() { integrate_cpu_parallel(work.data(), p.data(), n, dt, num_steps); }, K);
-        std::vector<OscillatorState> par_result = work;
 
         double gpu_ms = median_ms(
             [&]() { work = s0; },
             [&]() { integrate_gpu(work.data(), p.data(), n, dt, num_steps); }, K);
         std::vector<OscillatorState> gpu_result = work;
 
-        // Correctness: both the parallel-CPU and GPU results must match the
-        // single-core reference.
+        // Correctness: GPU result must match the single-core reference.
         double max_err = 0.0;
         for (int i = 0; i < n; i++) {
             max_err = fmax(max_err, fabs(cpu_result[i].x - gpu_result[i].x));
             max_err = fmax(max_err, fabs(cpu_result[i].v - gpu_result[i].v));
-            max_err = fmax(max_err, fabs(cpu_result[i].x - par_result[i].x));
-            max_err = fmax(max_err, fabs(cpu_result[i].v - par_result[i].v));
         }
         const char* match = (max_err < 1e-3) ? "OK" : "FAIL";
 
-        printf("%10d %11.3f %11.3f %11.3f %9.1fx %9.1fx %7s\n",
-               n, cpu1_ms, cpu_par_ms, gpu_ms,
-               cpu1_ms / gpu_ms, cpu_par_ms / gpu_ms, match);
-        fprintf(csv, "%d,%.4f,%.4f,%.4f,%.3f,%.3f,%s\n",
-                n, cpu1_ms, cpu_par_ms, gpu_ms,
-                cpu1_ms / gpu_ms, cpu_par_ms / gpu_ms, match);
+        printf("%12d %12.3f %12.3f %11.1fx %10s\n",
+               n, cpu_ms, gpu_ms, cpu_ms / gpu_ms, match);
+        fprintf(csv, "%d,%.4f,%.4f,%.3f,%s\n",
+                n, cpu_ms, gpu_ms, cpu_ms / gpu_ms, match);
     }
 
     fclose(csv);
     printf("\nWrote results.csv\n");
+
+    // Automatically render and open the graph. Needs Python + matplotlib; if it
+    // isn't installed this just prints a message and the run still succeeded.
+    printf("Plotting results...\n");
+    if (system("python plot_results.py") != 0)
+        system("python3 plot_results.py");
+
     return 0;
 }

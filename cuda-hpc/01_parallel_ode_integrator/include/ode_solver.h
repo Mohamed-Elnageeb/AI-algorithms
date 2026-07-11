@@ -12,14 +12,9 @@ struct OscillatorParams {
 };
 
 // Advance `n` independent oscillators by `num_steps` of size `dt`, in place.
-// CPU reference implementation. TODO: implement in ode_solver_cpu.cpp.
+// Single-threaded CPU reference implementation.
 void integrate_cpu(OscillatorState* states, const OscillatorParams* params,
                     int n, float dt, int num_steps);
-
-// Same contract as integrate_cpu, but splits the oscillators across CPU
-// threads (one chunk per core). num_threads <= 0 means "use all cores".
-void integrate_cpu_parallel(OscillatorState* states, const OscillatorParams* params,
-                            int n, float dt, int num_steps, int num_threads = 0);
 
 // Same contract as integrate_cpu, but runs on the GPU.
 void integrate_gpu(OscillatorState* states, const OscillatorParams* params,
