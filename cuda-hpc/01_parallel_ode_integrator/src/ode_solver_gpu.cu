@@ -1,5 +1,3 @@
-#include <cstring>
-
 #include "ode_solver.h"
 
 __global__ void integrate_kernel(OscillatorState* states, const OscillatorParams* params,
@@ -72,8 +70,13 @@ void get_device_info(DeviceInfo* info) {
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);   // device 0
 
-    std::strncpy(info->name, prop.name, sizeof(info->name) - 1);
-    info->name[sizeof(info->name) - 1] = '\0';
+    // Copy the name by hand rather than pulling <cstring> into this .cu file
+    // (a standard-library include here trips an nvcc/MSVC frontend bug).
+    int k = 0;
+    for (; k < (int)sizeof(info->name) - 1 && prop.name[k] != '\0'; k++)
+        info->name[k] = prop.name[k];
+    info->name[k] = '\0';
+
     info->sms          = prop.multiProcessorCount;
     info->cores_per_sm = cores_per_sm(prop.major, prop.minor);
     info->total_cores  = info->sms * info->cores_per_sm;
