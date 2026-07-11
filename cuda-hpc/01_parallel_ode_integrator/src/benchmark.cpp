@@ -73,10 +73,11 @@ int main() {
     fprintf(csv, "# gpu_sms,%d\n", dev.sms);
     fprintf(csv, "# cpu_threads,%u\n", cpu_threads);
     fprintf(csv, "# num_steps,%d\n", num_steps);
-    fprintf(csv, "n,cpu_ms,gpu_ms,speedup,match\n");
+    fprintf(csv, "n,cpu1_ms,cpu_par_ms,gpu_ms,gpu_vs_cpu1,gpu_vs_cpu_par,match\n");
 
-    printf("%12s %12s %12s %12s %10s\n", "n", "cpu_ms", "gpu_ms", "speedup", "match");
-    printf("------------------------------------------------------------\n");
+    printf("%10s %11s %11s %11s %10s %10s %7s\n",
+           "n", "cpu1_ms", "cpu_par_ms", "gpu_ms", "vs_1core", "vs_all", "match");
+    printf("---------------------------------------------------------------------------\n");
 
     for (int n : sizes) {
         std::vector<OscillatorState> s0;
@@ -87,28 +88,38 @@ int main() {
         int K = (n <= 1000) ? 9 : (n <= 100000 ? 3 : 1);
 
         std::vector<OscillatorState> work;
-        double cpu_ms = median_ms(
+        double cpu1_ms = median_ms(
             [&]() { work = s0; },
             [&]() { integrate_cpu(work.data(), p.data(), n, dt, num_steps); }, K);
-        std::vector<OscillatorState> cpu_result = work;  // keep last CPU result
+        std::vector<OscillatorState> cpu_result = work;  // reference answer
+
+        double cpu_par_ms = median_ms(
+            [&]() { work = s0; },
+            [&]() { integrate_cpu_parallel(work.data(), p.data(), n, dt, num_steps); }, K);
+        std::vector<OscillatorState> par_result = work;
 
         double gpu_ms = median_ms(
             [&]() { work = s0; },
             [&]() { integrate_gpu(work.data(), p.data(), n, dt, num_steps); }, K);
-        std::vector<OscillatorState> gpu_result = work;  // keep last GPU result
+        std::vector<OscillatorState> gpu_result = work;
 
-        // Correctness: largest difference between CPU and GPU results.
+        // Correctness: both the parallel-CPU and GPU results must match the
+        // single-core reference.
         double max_err = 0.0;
         for (int i = 0; i < n; i++) {
             max_err = fmax(max_err, fabs(cpu_result[i].x - gpu_result[i].x));
             max_err = fmax(max_err, fabs(cpu_result[i].v - gpu_result[i].v));
+            max_err = fmax(max_err, fabs(cpu_result[i].x - par_result[i].x));
+            max_err = fmax(max_err, fabs(cpu_result[i].v - par_result[i].v));
         }
         const char* match = (max_err < 1e-3) ? "OK" : "FAIL";
 
-        printf("%12d %12.3f %12.3f %11.1fx %10s\n",
-               n, cpu_ms, gpu_ms, cpu_ms / gpu_ms, match);
-        fprintf(csv, "%d,%.4f,%.4f,%.3f,%s\n",
-                n, cpu_ms, gpu_ms, cpu_ms / gpu_ms, match);
+        printf("%10d %11.3f %11.3f %11.3f %9.1fx %9.1fx %7s\n",
+               n, cpu1_ms, cpu_par_ms, gpu_ms,
+               cpu1_ms / gpu_ms, cpu_par_ms / gpu_ms, match);
+        fprintf(csv, "%d,%.4f,%.4f,%.4f,%.3f,%.3f,%s\n",
+                n, cpu1_ms, cpu_par_ms, gpu_ms,
+                cpu1_ms / gpu_ms, cpu_par_ms / gpu_ms, match);
     }
 
     fclose(csv);
