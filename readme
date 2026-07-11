@@ -4,15 +4,12 @@ A personal workspace for AI algorithm implementations and GPU/CUDA programming p
 
 ## Structure
 
-- `AI algorithms implementations/` — existing AI algorithm work and HackerRank AI problems.
-- `cuda-hpc/` — CUDA / GPU high-performance computing projects (new).
-  - `01_parallel_ode_integrator/` — CPU vs. GPU ODE solver benchmark (in progress).
+- `AI algorithms implementations/` — AI algorithm work and HackerRank AI problems.
+- `cuda-hpc/` — CUDA / GPU high-performance computing projects.
+  - [`01_parallel_ode_integrator/`](cuda-hpc/01_parallel_ode_integrator/) — batched
+    ODE solver on the GPU vs a single CPU core. Verified correct, up to a
+    **942× speedup** on an RTX 2080 Super. See its
+    [REPORT](cuda-hpc/01_parallel_ode_integrator/REPORT.md) for the
+    time-complexity analysis.
 
-## Working with Claude on this repo
-
-This repo is connected to a Claude Code session on branch `claude/repo-access-editing-vupm3c`.
-
-- Ask for changes in plain language ("add a RK4 CUDA kernel to the ODE integrator", "benchmark this against the CPU version").
-- Claude edits files, runs builds/tests locally, and commits + pushes to the branch above — it will tell you before pushing.
-- To review changes: open a PR from `claude/repo-access-editing-vupm3c` into `main` on GitHub, or ask Claude to open one.
-- Claude won't touch files outside what you ask it to change — existing folders (like `AI algorithms implementations/`) are left alone unless you request edits there.
+![CPU vs GPU benchmark](cuda-hpc/01_parallel_ode_integrator/benchmark.png)
