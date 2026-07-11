@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "ode_solver.h"
 
 __global__ void integrate_kernel(OscillatorState* states, const OscillatorParams* params,
@@ -45,4 +47,35 @@ void integrate_gpu(OscillatorState* states, const OscillatorParams* params,
     // --- 5. Return the desks ---
     cudaFree(d_states);
     cudaFree(d_params);
+}
+
+
+// Number of CUDA cores per SM for each GPU architecture ("compute capability").
+// This ratio is fixed by the hardware design and isn't reported by the driver,
+// so we look it up. Values from NVIDIA's helper_cuda.h.
+static int cores_per_sm(int major, int minor) {
+    int sm = (major << 4) + minor;   // e.g. 7.5 -> 0x75
+    switch (sm) {
+        case 0x30: case 0x32: case 0x35: case 0x37: return 192;  // Kepler
+        case 0x50: case 0x52: case 0x53:            return 128;  // Maxwell
+        case 0x60:                                  return  64;  // Pascal GP100
+        case 0x61: case 0x62:                       return 128;  // Pascal
+        case 0x70: case 0x72: case 0x75:            return  64;  // Volta / Turing (RTX 2080)
+        case 0x80:                                  return  64;  // Ampere A100
+        case 0x86: case 0x87: case 0x89:            return 128;  // Ampere / Ada
+        case 0x90:                                  return 128;  // Hopper
+        default:                                    return  64;  // reasonable fallback
+    }
+}
+
+void get_device_info(DeviceInfo* info) {
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);   // device 0
+
+    std::strncpy(info->name, prop.name, sizeof(info->name) - 1);
+    info->name[sizeof(info->name) - 1] = '\0';
+    info->sms          = prop.multiProcessorCount;
+    info->cores_per_sm = cores_per_sm(prop.major, prop.minor);
+    info->total_cores  = info->sms * info->cores_per_sm;
+    info->mem_gb       = prop.totalGlobalMem / 1e9;
 }
