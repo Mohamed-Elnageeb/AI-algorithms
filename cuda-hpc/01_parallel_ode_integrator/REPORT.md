@@ -183,6 +183,27 @@ cuda-hpc\01_parallel_ode_integrator\run.bat       # run + auto-plot + open graph
 `run.bat` runs `benchmark.exe`, which writes `results.csv`, calls
 `plot_results.py` to render `benchmark.png`, and opens it.
 
+## 6b. Extensions: kernel timing & RK4
+
+Two experiments confirm the analysis above (regenerated whenever you run the
+benchmark):
+
+- **Kernel vs transfer (CUDA events).** `integrate_gpu` optionally times *just*
+  the kernel with CUDA events, separately from the `std::chrono` total that also
+  includes the PCIe copies. On the main graph the **GPU-kernel-only** line sits
+  far below the **GPU-total** line, and the gap between them *is* the memory
+  transfer cost — direct proof that at large n this problem is transfer-bound,
+  not compute-bound.
+
+- **RK4 raises the speedup.** Classic 4th-order Runge-Kutta does 4 derivative
+  evaluations per step instead of Euler's 1 — 4× the arithmetic for the same
+  data transfer. Higher arithmetic intensity means more compute to hide behind
+  the transfer, so the GPU speedup *increases* vs Euler (see
+  `speedup_comparison.png`). This is the lever that matters for real workloads:
+  the GPU wins biggest when there's plenty of math per byte moved.
+
+See [LESSONS.md](LESSONS.md) for a concept-by-concept FAQ.
+
 ## 7. Possible next steps
 
 - Swap Euler for **RK4** — 4× the arithmetic per step raises the compute-to-

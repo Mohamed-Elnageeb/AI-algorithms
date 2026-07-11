@@ -1,7 +1,10 @@
 #include "ode_solver.h"
 
+// --- Kernels: one thread per oscillator, each runs num_steps in registers ---
+
+// Semi-implicit (symplectic) Euler.
 __global__ void integrate_kernel(OscillatorState* states, const OscillatorParams* params,
-                    int n, float dt,int num_steps) {
+                    int n, float dt, int num_steps) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n) return;
 
@@ -9,42 +12,100 @@ __global__ void integrate_kernel(OscillatorState* states, const OscillatorParams
     const OscillatorParams& p = params[i];
     const float two_zeta_omega = 2.0f * p.zeta * p.omega;
     const float omega_sq =  p.omega * p.omega;
-    
+
     for (int j = 0; j < num_steps; j++)
     {
         float a =  -two_zeta_omega * s.v - omega_sq * s.x;
         s.v += a * dt;
         s.x += s.v * dt;
     }
-    }
+}
 
-
-void integrate_gpu(OscillatorState* states, const OscillatorParams* params,
+// Classic 4th-order Runge-Kutta (same math as integrate_cpu_rk4).
+__global__ void integrate_kernel_rk4(OscillatorState* states, const OscillatorParams* params,
                     int n, float dt, int num_steps) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
 
-    // --- 1. Rent GPU desk space. 'd_' = "device" (lives on GPU) ---
+    OscillatorState& s = states[i];
+    const OscillatorParams& p = params[i];
+    const float tzw = 2.0f * p.zeta * p.omega;
+    const float w2  = p.omega * p.omega;
+    const float h   = dt;
+
+    for (int j = 0; j < num_steps; j++)
+    {
+        float x = s.x, v = s.v;
+        float dx1 = v,             dv1 = -tzw * v  - w2 * x;
+        float x2 = x + 0.5f*h*dx1, v2 = v + 0.5f*h*dv1;
+        float dx2 = v2,            dv2 = -tzw * v2 - w2 * x2;
+        float x3 = x + 0.5f*h*dx2, v3 = v + 0.5f*h*dv2;
+        float dx3 = v3,            dv3 = -tzw * v3 - w2 * x3;
+        float x4 = x + h*dx3,      v4 = v + h*dv3;
+        float dx4 = v4,            dv4 = -tzw * v4 - w2 * x4;
+
+        s.x = x + (h / 6.0f) * (dx1 + 2.0f*dx2 + 2.0f*dx3 + dx4);
+        s.v = v + (h / 6.0f) * (dv1 + 2.0f*dv2 + 2.0f*dv3 + dv4);
+    }
+}
+
+// --- Host wrapper: the malloc -> copy -> launch -> copy-back -> free dance,
+//     shared by both integrators. `launch` runs the chosen kernel; if
+//     kernel_ms != nullptr we time just the kernel with CUDA events. ---
+template <class Launch>
+static void run_gpu(OscillatorState* states, const OscillatorParams* params,
+                    int n, float* kernel_ms, Launch launch) {
     size_t states_bytes = n * sizeof(OscillatorState);
     size_t params_bytes = n * sizeof(OscillatorParams);
-    OscillatorState* d_states;
-    OscillatorParams* d_params; 
+
+    OscillatorState*  d_states;
+    OscillatorParams* d_params;
     cudaMalloc(&d_states, states_bytes);
     cudaMalloc(&d_params, params_bytes);
 
-    // --- 2. Mail data CPU -> GPU ---
     cudaMemcpy(d_states, states, states_bytes, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_params, params, params_bytes, cudaMemcpyHostToDevice); 
+    cudaMemcpy(d_params, params, params_bytes, cudaMemcpyHostToDevice);
 
-    // --- 3. Launch the workers ---
-    int threads = 256; 
-    int blocks = (n + threads - 1) / threads; //enough blocks to cover all n
-    integrate_kernel<<<blocks, threads>>>(d_states, d_params, n, dt, num_steps);
+    int threads = 256;                          // threads per block (see notes)
+    int blocks  = (n + threads - 1) / threads;  // enough blocks to cover all n
 
-    // --- 4. Mail results GPU -> CPU (direction flips!) ---
+    // Optionally time ONLY the kernel (not the transfers) with GPU events.
+    cudaEvent_t t0, t1;
+    if (kernel_ms) {
+        cudaEventCreate(&t0);
+        cudaEventCreate(&t1);
+        cudaEventRecord(t0);
+    }
+
+    launch(blocks, threads, d_states, d_params);
+
+    if (kernel_ms) {
+        cudaEventRecord(t1);
+        cudaEventSynchronize(t1);               // wait for the kernel to finish
+        cudaEventElapsedTime(kernel_ms, t0, t1);
+        cudaEventDestroy(t0);
+        cudaEventDestroy(t1);
+    }
+
     cudaMemcpy(states, d_states, states_bytes, cudaMemcpyDeviceToHost);
-
-    // --- 5. Return the desks ---
     cudaFree(d_states);
     cudaFree(d_params);
+}
+
+void integrate_gpu(OscillatorState* states, const OscillatorParams* params,
+                    int n, float dt, int num_steps, float* kernel_ms) {
+    run_gpu(states, params, n, kernel_ms,
+            [=](int blocks, int threads, OscillatorState* ds, OscillatorParams* dp) {
+                integrate_kernel<<<blocks, threads>>>(ds, dp, n, dt, num_steps);
+            });
+}
+
+void integrate_gpu_rk4(OscillatorState* states, const OscillatorParams* params,
+                        int n, float dt, int num_steps, float* kernel_ms) {
+    run_gpu(states, params, n, kernel_ms,
+            [=](int blocks, int threads, OscillatorState* ds, OscillatorParams* dp) {
+                integrate_kernel_rk4<<<blocks, threads>>>(ds, dp, n, dt, num_steps);
+            });
 }
 
 
