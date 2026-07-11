@@ -17,16 +17,29 @@ bit-for-bit against the CPU reference.
 
 ![CPU vs GPU benchmark](benchmark.png)
 
-| n | CPU 1-core (ms) | GPU (ms) | Speedup |
-|--:|--:|--:|--:|
-| 1,000 | 6.53 | 0.61 | 10.7× |
-| 10,000 | 66.3 | 1.03 | 65× |
-| 100,000 | 657.2 | 1.40 | 468× |
-| 1,000,000 | 6643 | 7.05 | **942×** |
+| n | CPU 1-core (ms) | GPU total (ms) | GPU kernel (ms) | Speedup |
+|--:|--:|--:|--:|--:|
+| 1,000 | 6.48 | 0.56 | 0.03 | 11.5× |
+| 10,000 | 65.3 | 0.99 | 0.06 | 66× |
+| 100,000 | 654.0 | 1.18 | 0.16 | 552× |
+| 1,000,000 | 6547 | 6.81 | 1.30 | **961×** |
 
 The GPU line is nearly flat until the hardware saturates (thousands of cores sit
 idle at small n), while the single-core CPU rises linearly. They cross at about
-**n = 102** — below that the GPU's transfer + launch overhead isn't worth it.
+**n = 87** — below that the GPU's transfer + launch overhead isn't worth it. At
+n=1M the **kernel is only 1.3 ms of the 6.8 ms total** — the rest is PCIe data
+transfer, so this workload is memory-bound, not compute-bound.
+
+### Euler vs RK4: more math per byte helps — up to a point
+
+![Euler vs RK4 speedup](speedup_comparison.png)
+
+RK4 does 4 derivative evaluations per step vs Euler's 1. That extra arithmetic
+gives more compute to hide behind the same transfer, so RK4's speedup is **higher
+at small-to-mid n** (e.g. n=10k: **152× RK4 vs 66× Euler**). But past ~30k the
+heavier RK4 kernel itself becomes the bottleneck, and its speedup falls back
+below Euler — a nice illustration that "more compute" only helps while the
+kernel is still cheap relative to the data transfer.
 
 📄 **See [REPORT.md](REPORT.md)** for the full write-up: time-complexity analysis,
 kernel-vs-transfer timing, the Euler-vs-RK4 comparison, and why the curves

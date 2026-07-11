@@ -8,7 +8,8 @@ A personal workspace for AI algorithm implementations and GPU/CUDA programming p
 - `cuda-hpc/` — CUDA / GPU high-performance computing projects.
   - [`01_parallel_ode_integrator/`](cuda-hpc/01_parallel_ode_integrator/) — batched
     ODE solver on the GPU vs a single CPU core. Verified correct, up to a
-    **942× speedup** on an RTX 2080 Super. See its
+    **961× speedup** on an RTX 2080 Super, with kernel-vs-transfer profiling
+    and an Euler/RK4 comparison. See its
     [REPORT](cuda-hpc/01_parallel_ode_integrator/REPORT.md) for the
     time-complexity analysis.
 
