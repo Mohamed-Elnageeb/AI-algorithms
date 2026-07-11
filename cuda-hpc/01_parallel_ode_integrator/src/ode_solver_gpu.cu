@@ -1,10 +1,23 @@
 #include "ode_solver.h"
 
-// TODO: write __global__ void integrate_kernel(...) here.
-//   - One thread handles one oscillator (index = blockIdx.x * blockDim.x + threadIdx.x).
-//   - Guard against index >= n.
-//   - Same Euler update as the CPU version, looped num_steps times inside the kernel
-//     (so we only pay one kernel-launch overhead for the whole run).
+__global__ void integrate_kernel(OscillatorState* states, const OscillatorParams* params,
+                    int n, float dt,int num_steps) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+
+    OscillatorState& s = states[i];
+    const OscillatorParams& p = params[i];
+    const float two_zeta_omega = 2.0f * p.zeta * p.omega;
+    const float omega_sq =  p.omega * p.omega;
+    
+    for (int j = 0; i < num_steps; i++)
+    {
+        float a =  -two_zeta_omega * s.v - omega_sq * s.x;
+        s.v += a * dt;
+        s.x += s.v * dt;
+    }
+    }
+
 
 void integrate_gpu(OscillatorState* states, const OscillatorParams* params,
                     int n, float dt, int num_steps) {
