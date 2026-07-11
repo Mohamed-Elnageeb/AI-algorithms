@@ -56,8 +56,12 @@ order, or all at once.
 | 1,000,000 | 6538 | 7.25 | **902×** |
 
 All GPU results are verified bit-for-bit against the single-core CPU reference
-(`match = OK` on every row). The numbers above are from a run to n = 10⁶; the
-committed benchmark sweeps to n = 10⁷ when you run it locally.
+(`match = OK` on every row). The sweep runs from n = 1 to n = 10⁶.
+
+Speedup peaks near **n = 1,000,000 (~900–1000×)** and would *fall* beyond that:
+past a few million oscillators the run becomes bound by PCIe data transfer and
+GPU memory allocation (which don't scale with more cores) rather than by the
+cheap, highly-parallel arithmetic — the classic low-arithmetic-intensity limit.
 
 ---
 

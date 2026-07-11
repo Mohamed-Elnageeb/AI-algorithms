@@ -13,6 +13,10 @@ import matplotlib
 matplotlib.use("Agg")  # render to a file; we open it ourselves afterwards
 import matplotlib.pyplot as plt
 
+# This script's own folder, so results.csv / benchmark.png are found and written
+# here regardless of the current working directory the program was launched from.
+HERE = os.path.dirname(os.path.abspath(__file__))
+
 
 def load(path):
     meta, rows = {}, []
@@ -57,7 +61,7 @@ def open_image(path):
 
 
 def main():
-    meta, rows = load("results.csv")
+    meta, rows = load(os.path.join(HERE, "results.csv"))
     ns  = [r[0] for r in rows]
     cpu = [r[1] for r in rows]
     gpu = [r[2] for r in rows]
@@ -102,11 +106,12 @@ def main():
 
     ax.legend(loc="lower right")
     fig.tight_layout()
-    fig.savefig("benchmark.png", dpi=130)
-    print("wrote benchmark.png")
+    out = os.path.join(HERE, "benchmark.png")
+    fig.savefig(out, dpi=130)
+    print("wrote", out)
     if xover:
         print(f"crossover: GPU becomes faster at about n = {xover:,.0f}")
-    open_image("benchmark.png")
+    open_image(out)
 
 
 if __name__ == "__main__":

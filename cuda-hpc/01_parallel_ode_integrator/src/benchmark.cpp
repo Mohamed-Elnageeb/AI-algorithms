@@ -1,12 +1,32 @@
 #include <cstdio>
 #include <cstdlib>   // system()
+#include <string>
 #include <vector>
 #include <chrono>
 #include <cmath>
 #include <algorithm>
 #include <thread>    // hardware_concurrency (for the info line only)
 
+#ifdef _WIN32
+#include <windows.h>  // GetModuleFileNameA
+#endif
+
 #include "ode_solver.h"
+
+// Directory this executable lives in, so results.csv and the plot script are
+// found no matter which folder the program is launched from.
+static std::string exe_dir(const char* argv0) {
+    std::string path;
+#ifdef _WIN32
+    char buf[1024];
+    DWORD len = GetModuleFileNameA(NULL, buf, sizeof(buf));
+    path.assign(buf, len);
+#else
+    path = argv0 ? argv0 : "";
+#endif
+    size_t slash = path.find_last_of("/\\");
+    return (slash == std::string::npos) ? std::string(".") : path.substr(0, slash);
+}
 
 // Fill n oscillators with simple, repeatable test data (no randomness so the
 // CPU and GPU runs start from identical inputs and must produce identical output).
@@ -39,13 +59,15 @@ static double median_ms(Reset reset, Run run, int K) {
     return times[times.size() / 2];
 }
 
-int main() {
+int main(int argc, char** argv) {
     const float dt = 0.001f;
     const int num_steps = 1000;
-    // Log-spaced (~3x) sweep, tiny -> huge, so we see both the CPU->GPU
-    // crossover and the GPU's flat region all the way out to 10 million.
-    const int sizes[] = {1, 3, 10, 30, 100, 300, 1000, 3000, 10000, 30000,
-                         100000, 300000, 1000000, 3000000, 10000000};
+    // Log-spaced (~3x) sweep, tiny -> 1 million, so we see both the CPU->GPU
+    // crossover and the GPU's flat region.
+    const int sizes[] = {1, 3, 10, 30, 100, 300, 1000, 3000,
+                         10000, 30000, 100000, 300000, 1000000};
+
+    const std::string dir = exe_dir(argv[0]);
 
     // --- hardware info ---
     DeviceInfo dev;
@@ -66,9 +88,10 @@ int main() {
         integrate_gpu(ws.data(), wp.data(), 1000, dt, num_steps);
     }
 
-    // Write a CSV for the plotting script. The leading "# key,value" lines carry
-    // the hardware specs so the graph can label itself.
-    FILE* csv = fopen("results.csv", "w");
+    // Write results.csv next to the executable. The leading "# key,value" lines
+    // carry the hardware specs so the graph can label itself.
+    std::string csv_path = dir + "/results.csv";
+    FILE* csv = fopen(csv_path.c_str(), "w");
     fprintf(csv, "# gpu_name,%s\n", dev.name);
     fprintf(csv, "# gpu_cores,%d\n", dev.total_cores);
     fprintf(csv, "# gpu_sms,%d\n", dev.sms);
@@ -113,13 +136,16 @@ int main() {
     }
 
     fclose(csv);
-    printf("\nWrote results.csv\n");
+    printf("\nWrote %s\n", csv_path.c_str());
 
-    // Automatically render and open the graph. Needs Python + matplotlib; if it
-    // isn't installed this just prints a message and the run still succeeded.
+    // Automatically render and open the graph. Invoke the script by its full
+    // path (next to this exe) so it works from any working directory. Needs
+    // Python + matplotlib; if missing, this just prints a message and the run
+    // still counts as successful.
     printf("Plotting results...\n");
-    if (system("python plot_results.py") != 0)
-        system("python3 plot_results.py");
+    std::string script = "\"" + dir + "/plot_results.py\"";
+    if (system(("python " + script).c_str()) != 0)
+        system(("python3 " + script).c_str());
 
     return 0;
 }
