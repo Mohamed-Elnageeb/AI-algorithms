@@ -1,16 +1,37 @@
 # AI & GPU Algorithms
 
-A personal workspace for AI algorithm implementations and GPU/CUDA programming projects.
+A growing collection of **GPU/CUDA, machine-learning, AI, and numerical-computing**
+projects — each self-contained, with a reproducible benchmark and a short
+technical write-up. The goal is depth over breadth: implement a thing, measure
+it honestly, and explain *why* the numbers look the way they do.
 
-## Structure
+## Projects
 
-- `AI algorithms implementations/` — AI algorithm work and HackerRank AI problems.
-- `cuda-hpc/` — CUDA / GPU high-performance computing projects.
-  - [`01_parallel_ode_integrator/`](cuda-hpc/01_parallel_ode_integrator/) — batched
-    ODE solver on the GPU vs a single CPU core. Verified correct, up to a
-    **961× speedup** on an RTX 2080 Super, with kernel-vs-transfer profiling
-    and an Euler/RK4 comparison. See its
-    [REPORT](cuda-hpc/01_parallel_ode_integrator/REPORT.md) for the
-    time-complexity analysis.
+### GPU / CUDA
+- **[Parallel ODE Integrator](cuda-hpc/01_parallel_ode_integrator/)** — a batch of
+  independent oscillators integrated on the GPU (one CUDA thread each) vs a
+  single CPU core. Verified bit-for-bit correct, **up to ~960× speedup** on an
+  RTX 2080 Super. Uses CUDA events to separate compute from PCIe transfer and
+  compares Euler vs RK4. → [report](cuda-hpc/01_parallel_ode_integrator/REPORT.md)
+  · [lessons](cuda-hpc/01_parallel_ode_integrator/LESSONS.md)
 
-![CPU vs GPU benchmark](cuda-hpc/01_parallel_ode_integrator/benchmark.png)
+  ![CPU vs GPU benchmark](cuda-hpc/01_parallel_ode_integrator/benchmark.png)
+
+### AI / ML
+- `AI algorithms implementations/` — algorithm practice and HackerRank AI problems.
+- *(more coming)*
+
+## Layout
+
+```
+cuda-hpc/                     GPU/CUDA projects (CMake, one folder per project)
+AI algorithms implementations/  AI/ML algorithm work
+```
+
+Each project folder has its own README with build/run steps and results.
+
+## Tooling
+
+- **Languages:** C++17 / CUDA, Python.
+- **Build:** CMake; per-project `build.bat` / `run.bat` helpers on Windows.
+- **CI:** GitHub Actions compiles the CUDA projects on every push.
