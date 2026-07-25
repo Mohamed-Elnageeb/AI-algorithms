@@ -194,14 +194,6 @@ benchmark):
   transfer cost — direct proof that at large n this problem is transfer-bound,
   not compute-bound.
 
-<<<<<<< HEAD
-- **RK4 raises the speedup.** Classic 4th-order Runge-Kutta does 4 derivative
-  evaluations per step instead of Euler's 1 — 4× the arithmetic for the same
-  data transfer. Higher arithmetic intensity means more compute to hide behind
-  the transfer, so the GPU speedup *increases* vs Euler (see
-  `speedup_comparison.png`). This is the lever that matters for real workloads:
-  the GPU wins biggest when there's plenty of math per byte moved.
-=======
 - **RK4: more math per byte helps — until the kernel dominates.** Classic
   4th-order Runge-Kutta does 4 derivative evaluations per step instead of
   Euler's 1. That extra arithmetic gives more compute to hide behind the same
@@ -221,7 +213,6 @@ benchmark):
   The lesson: raising arithmetic intensity helps *only while the kernel stays
   cheap relative to the transfer*. Once the kernel is the bottleneck, doing more
   work per element just costs more time.
->>>>>>> 3f85511881955fa392e8b50388fbf2834dcab2f7
 
 See [LESSONS.md](LESSONS.md) for a concept-by-concept FAQ.
 
