@@ -125,17 +125,28 @@ int main(int argc, char** argv) {
             double gpu_ms = median_ms(
                 [&]() { work = s0; },
                 [&]() { m.gpu(work.data(), p.data(), n, dt, num_steps, nullptr); }, K);
+<<<<<<< HEAD
             std::vector<OscillatorState> gpu_result = work;
 
             // One extra call to capture kernel-only time via CUDA events.
+=======
+
+            // One extra call to capture kernel-only time via CUDA events.
+            // `work` holds the GPU result afterwards, so we diff against it directly.
+>>>>>>> 3f85511881955fa392e8b50388fbf2834dcab2f7
             float kernel_ms = 0.0f;
             work = s0;
             m.gpu(work.data(), p.data(), n, dt, num_steps, &kernel_ms);
 
             double max_err = 0.0;
             for (int i = 0; i < n; i++) {
+<<<<<<< HEAD
                 max_err = fmax(max_err, fabs(cpu_result[i].x - gpu_result[i].x));
                 max_err = fmax(max_err, fabs(cpu_result[i].v - gpu_result[i].v));
+=======
+                max_err = fmax(max_err, fabs(cpu_result[i].x - work[i].x));
+                max_err = fmax(max_err, fabs(cpu_result[i].v - work[i].v));
+>>>>>>> 3f85511881955fa392e8b50388fbf2834dcab2f7
             }
             const char* match = (max_err < 1e-3) ? "OK" : "FAIL";
 

@@ -48,17 +48,17 @@ order, or all at once.
 
 ![CPU vs GPU benchmark](benchmark.png)
 
-| n | CPU 1-core (ms) | GPU (ms) | Speedup |
-|--:|--:|--:|--:|
-| 1,000 | 6.53 | 0.61 | 10.7× |
-| 10,000 | 66.3 | 1.03 | 65× |
-| 100,000 | 657.2 | 1.40 | 468× |
-| 1,000,000 | 6643 | 7.05 | **942×** |
+| n | CPU 1-core (ms) | GPU total (ms) | GPU kernel (ms) | Speedup |
+|--:|--:|--:|--:|--:|
+| 1,000 | 6.48 | 0.56 | 0.03 | 11.5× |
+| 10,000 | 65.3 | 0.99 | 0.06 | 66× |
+| 100,000 | 654.0 | 1.18 | 0.16 | 552× |
+| 1,000,000 | 6547 | 6.81 | 1.30 | **961×** |
 
 All GPU results are verified bit-for-bit against the single-core CPU reference
 (`match = OK` on every row). The sweep runs from n = 1 to n = 10⁶.
 
-Speedup peaks near **n = 1,000,000 (~900–1000×)** and would *fall* beyond that:
+Speedup peaks near **n = 1,000,000 (~960×)** and would *fall* beyond that:
 past a few million oscillators the run becomes bound by PCIe data transfer and
 GPU memory allocation (which don't scale with more cores) rather than by the
 cheap, highly-parallel arithmetic — the classic low-arithmetic-intensity limit.
@@ -99,7 +99,7 @@ This produces the two regimes you see in the green curve:
   free because it just lights up an idle core.
 - **Large n (n ≫ P):** the cores are saturated and pipelined, so
   `T_gpu ≈ Θ(n·S/P)` — linear again, but with a slope reduced by the factor `P`.
-  That's why the green line eventually rises, but stays ~900× below the CPU.
+  That's why the green line eventually rises, but stays ~960× below the CPU.
 
 ### Crossover
 The GPU wins once its overhead is cheaper than the CPU's linear work:
@@ -108,7 +108,7 @@ The GPU wins once its overhead is cheaper than the CPU's linear work:
 L  ≈  T_cpu(n*)  =  c · n* · S      ⇒      n*  ≈  L / (c · S)
 ```
 
-Measured crossover: **n\* ≈ 102**. Below it, the single core is faster because
+Measured crossover: **n\* ≈ 87**. Below it, the single core is faster because
 the GPU's fixed overhead `L` dominates a tiny workload; above it, the GPU's
 parallelism takes over.
 
@@ -120,11 +120,10 @@ speedup = T_cpu / T_gpu  →  (n·S) / (n·S/P + Θ(n))  ≈  P / (1 + P/S)
 ```
 
 With `S = 1000` and `P = 3072`, memory transfer (the `Θ(n)` term) starts to
-bite, which is why the observed 942× is below the raw core count of 3072 — the
+bite, which is why the observed 961× is below the raw core count of 3072 — the
 classic lesson that on the GPU, **moving data, not doing math, is often the
-bottleneck** (this problem does only ~1000 flops per oscillator but must ship
-every oscillator across the bus). More arithmetic per byte (e.g. RK4, or more
-steps) would push the speedup higher.
+bottleneck**. The CUDA-event numbers make it concrete: at n=1M the kernel is
+only **1.3 ms of the 6.8 ms total**, so ~80% of the GPU time is PCIe transfer.
 
 ---
 
@@ -195,19 +194,45 @@ benchmark):
   transfer cost — direct proof that at large n this problem is transfer-bound,
   not compute-bound.
 
+<<<<<<< HEAD
 - **RK4 raises the speedup.** Classic 4th-order Runge-Kutta does 4 derivative
   evaluations per step instead of Euler's 1 — 4× the arithmetic for the same
   data transfer. Higher arithmetic intensity means more compute to hide behind
   the transfer, so the GPU speedup *increases* vs Euler (see
   `speedup_comparison.png`). This is the lever that matters for real workloads:
   the GPU wins biggest when there's plenty of math per byte moved.
+=======
+- **RK4: more math per byte helps — until the kernel dominates.** Classic
+  4th-order Runge-Kutta does 4 derivative evaluations per step instead of
+  Euler's 1. That extra arithmetic gives more compute to hide behind the same
+  data transfer, so RK4's speedup is **higher at small-to-mid n** (e.g. n=10k:
+  152× vs Euler's 66×). But past ~30k the heavier RK4 kernel becomes the
+  bottleneck itself and its speedup falls *below* Euler:
+
+  ![Euler vs RK4 speedup](speedup_comparison.png)
+
+  | n | Euler speedup | RK4 speedup |
+  |--:|--:|--:|
+  | 1,000 | 11.5× | 25.6× |
+  | 10,000 | 66× | 152× |
+  | 100,000 | 552× | 228× |
+  | 1,000,000 | 961× | 318× |
+
+  The lesson: raising arithmetic intensity helps *only while the kernel stays
+  cheap relative to the transfer*. Once the kernel is the bottleneck, doing more
+  work per element just costs more time.
+>>>>>>> 3f85511881955fa392e8b50388fbf2834dcab2f7
 
 See [LESSONS.md](LESSONS.md) for a concept-by-concept FAQ.
 
 ## 7. Possible next steps
 
-- Swap Euler for **RK4** — 4× the arithmetic per step raises the compute-to-
-  transfer ratio and should push the speedup past 900×.
-- Separate kernel time from transfer time with **CUDA events** to see the
-  `Θ(n)` bus cost directly.
+RK4 and CUDA-event kernel timing are already implemented (see §6b). Further
+ideas:
+
+- **Pinned (page-locked) host memory** — `cudaHostAlloc` roughly doubles PCIe
+  bandwidth, directly attacking the transfer term that caps the speedup.
+- **Keep data resident on the GPU** across many solves to amortise the one-time
+  transfer, instead of copying every call.
 - Compare `float` vs `double` for accuracy vs speed.
+- Investigate the heavy RK4 kernel at large n (occupancy / register pressure).

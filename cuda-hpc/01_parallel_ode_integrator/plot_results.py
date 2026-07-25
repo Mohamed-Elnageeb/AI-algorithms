@@ -124,7 +124,11 @@ def plot_speedup(by_method):
     ax.set_xscale("log"); ax.set_yscale("log")
     ax.set_xlabel("number of oscillators (n)")
     ax.set_ylabel("speedup (CPU 1 core / GPU)")
+<<<<<<< HEAD
     ax.set_title("More arithmetic per step (RK4) → higher GPU speedup")
+=======
+    ax.set_title("Euler vs RK4 GPU speedup: more math helps until the kernel dominates")
+>>>>>>> 3f85511881955fa392e8b50388fbf2834dcab2f7
     ax.grid(True, which="both", alpha=0.3)
     ax.axhline(1.0, ls=":", color="gray", alpha=0.7)
     ax.legend(loc="upper left")
